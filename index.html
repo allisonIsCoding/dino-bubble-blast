@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dino Bubble Blast</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dino Blast">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
@@ -46,12 +50,20 @@
   canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #hud {
     position: absolute; top: 10px; left: 14px; right: 14px;
-    display: flex; justify-content: space-between; align-items: center;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
     pointer-events: none;
-    font-size: 26px; font-weight: 800;
+    font-weight: 800;
     text-shadow: 0 2px 0 rgba(0,0,0,.35);
   }
-  #mute {
+  .left { display: flex; flex-direction: column; line-height: 1; }
+  #score { font-size: 26px; }
+  #lvl { font-size: 17px; color: var(--sun); margin-top: 4px; }
+  #lives { font-size: 22px; letter-spacing: 2px; text-align: center; }
+  .btns { display: flex; gap: 10px; justify-self: end; }
+  #pause, #fs { display: none; }
+  #fs { align-items: center; justify-content: center; padding: 0; }
+  #fs svg { width: 22px; height: 22px; }
+  #mute, #pause, #fs {
     pointer-events: auto;
     font: inherit; font-size: 24px;
     background: rgba(255,255,255,.12);
@@ -61,13 +73,17 @@
     width: 48px; height: 48px;
     cursor: pointer;
   }
-  #mute:focus-visible, #play:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
-  #start {
+  .overlay {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; text-align: center; padding: 24px;
-    background: rgba(22,12,54,.55);
+    gap: 16px; text-align: center; padding: 24px;
+    background: rgba(22,12,54,.7);
   }
+  .overlay[hidden] { display: none; }
+  .overlay .big { font-size: clamp(64px, 18vw, 120px); line-height: 1; }
+  .overlay h2 { margin: 0; font-size: clamp(36px, 10vw, 64px); line-height: 1; font-weight: 800; color: var(--sun); text-shadow: 0 4px 0 var(--pink); }
+  .overlay p { margin: 0; font-size: 22px; font-weight: 600; max-width: 24ch; }
+  #start { background: rgba(22,12,54,.55); }
   #start h1 {
     margin: 0;
     font-size: clamp(44px, 13vw, 96px);
@@ -77,10 +93,9 @@
     text-shadow: 0 5px 0 var(--pink), 0 10px 0 rgba(0,0,0,.25);
     transform: rotate(-4deg);
   }
-  #start .dinos { font-size: clamp(54px, 16vw, 110px); animation: bob 1.2s ease-in-out infinite alternate; }
+  #start .big { animation: bob 1.2s ease-in-out infinite alternate; }
   @keyframes bob { from { transform: translateY(-6px) rotate(-6deg); } to { transform: translateY(6px) rotate(6deg); } }
-  #start p { margin: 0; font-size: 22px; font-weight: 600; max-width: 22ch; }
-  #play {
+  .go {
     font: inherit; font-weight: 800; font-size: 34px;
     color: var(--sky-deep);
     background: var(--lime);
@@ -89,28 +104,45 @@
     box-shadow: 0 6px 0 #6FA82A;
     cursor: pointer;
   }
-  #play:active { transform: translateY(4px); box-shadow: 0 2px 0 #6FA82A; }
-  @media (prefers-reduced-motion: reduce) { #start .dinos { animation: none; } }
+  .go:active { transform: translateY(4px); box-shadow: 0 2px 0 #6FA82A; }
+  #mute:focus-visible, #pause:focus-visible, #fs:focus-visible, .go:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { #start .big { animation: none; } }
 </style>
 </head>
 <body>
 <div id="game">
   <canvas id="c"></canvas>
-  <div id="hud"><span id="score">⭐ 0</span><button id="mute" aria-label="Sound on or off">🔊</button></div>
-  <div id="start">
-    <div class="dinos" aria-hidden="true">🦖🫧🦕</div>
+  <div id="hud">
+    <div class="left"><span id="score">⭐ 0</span><span id="lvl"></span></div>
+    <span id="lives" aria-label="Lives"></span>
+    <span class="btns"><button id="pause" aria-label="Pause">⏸️</button><button id="mute" aria-label="Sound on or off">🔊</button><button id="fs" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="fsIcon" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></span>
+  </div>
+  <div id="paused" class="overlay" hidden>
+    <div class="big" aria-hidden="true">🦕💤</div>
+    <h2>Paused</h2>
+    <button id="resume" class="go">Keep playing!</button>
+  </div>
+  <div id="over" class="overlay" hidden>
+    <div class="big" aria-hidden="true">🦖🎉</div>
+    <h2>Great job!</h2>
+    <p id="overText"></p>
+    <button id="again" class="go">Play again!</button>
+  </div>
+  <div id="start" class="overlay">
+    <div class="big" aria-hidden="true">🦖🫧🦕</div>
     <h1>Dino Bubble Blast</h1>
-    <p>Slide your finger to move. Bubbles shoot all by themselves!</p>
-    <button id="play">Play!</button>
+    <p>Slide your finger to move. Bubbles shoot all by themselves! Dodge the dinos and their eggs.</p>
+    <button id="play" class="go">Play!</button>
   </div>
 </div>
 <script>
 (() => {
-  const canvas = document.getElementById('c');
+  const $ = id => document.getElementById(id);
+  const canvas = $('c');
   const ctx = canvas.getContext('2d');
-  const scoreEl = document.getElementById('score');
-  const startEl = document.getElementById('start');
-  const muteBtn = document.getElementById('mute');
+  const scoreEl = $('score'), lvlEl = $('lvl'), livesEl = $('lives');
+  const startEl = $('start'), pausedEl = $('paused'), overEl = $('over');
+  const muteBtn = $('mute'), pauseBtn = $('pause');
   let W = 0, H = 0, DPR = 1;
 
   function resize() {
@@ -126,7 +158,7 @@
   let ac = null, muted = false;
   function audio() {
     if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
-    if (ac && ac.state === 'suspended') ac.resume();
+    if (ac && ac.state === 'suspended' && !paused) ac.resume();
     return ac;
   }
   function tone(type, f1, f2, dur, vol = 0.15, delay = 0) {
@@ -144,8 +176,12 @@
   const sfx = {
     shoot: () => tone('sine', 900, 1400, 0.06, 0.04),
     pop:   () => { tone('triangle', 520, 1500, 0.35, 0.18); tone('sine', 1200, 1800, 0.15, 0.08, 0.12); },
-    boing: () => tone('triangle', 140, 480, 0.3, 0.2),
+    peep:  () => { tone('sine', 1800, 2400, 0.08, 0.1); tone('sine', 1800, 2600, 0.08, 0.1, 0.1); },
+    oops:  () => tone('sawtooth', 420, 110, 0.45, 0.12),
+    tink:  () => tone('square', 1600, 1500, 0.08, 0.06),
+    heart: () => { tone('sine', 880, 1320, 0.15, 0.12); tone('sine', 1320, 1760, 0.2, 0.1, 0.12); },
     yay:   () => [523, 659, 784, 1047].forEach((f, i) => tone('square', f, f * 1.01, 0.18, 0.06, i * 0.11)),
+    done:  () => [784, 659, 523, 659, 784].forEach((f, i) => tone('triangle', f, f, 0.2, 0.12, i * 0.15)),
   };
   muteBtn.addEventListener('click', () => {
     muted = !muted;
@@ -156,10 +192,61 @@
   const DINOS = ['🦖', '🦕', '🦖', '🦕', '🐊', '🐉'];
   const WORDS = ['Pop!', 'Wheee!', 'Boop!', 'Bye-bye!', 'Hee hee!', 'Bloop!'];
   const COLORS = ['#FF7AC6', '#B8F35A', '#FFD84D', '#5ED3F3', '#FFFFFF'];
-  let player = null, bubbles = [], dinos = [], floaters = [], confetti = [], stars = [];
-  let score = 0, wave = 0, running = false, lastShot = 0, nextDive = 0, cheerUntil = 0, t = 0;
+  const MAX_LIVES = 5;
+  let player = null, bubbles = [], dinos = [], eggs = [], chicks = [], floaters = [], confetti = [], stars = [];
+  let score = 0, wave = 0, lives = 3, running = false, paused = false;
+  let lastShot = 0, nextDive = 0, nextEgg = 0, nextWaveAt = 0, t = 0;
+  let bannerText = '', bannerUntil = 0, shake = 0;
   let targetX = 0;
   const keys = {};
+
+  function hud() {
+    scoreEl.textContent = '⭐ ' + score;
+    lvlEl.textContent = wave ? 'Level ' + wave : '';
+    livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
+    livesEl.setAttribute('aria-label', lives + ' lives');
+  }
+
+  function setPaused(p) {
+    if (!running) return;
+    paused = p;
+    pausedEl.hidden = !p;
+    pauseBtn.textContent = p ? '▶️' : '⏸️';
+    pauseBtn.setAttribute('aria-label', p ? 'Keep playing' : 'Pause');
+    if (ac) { p ? ac.suspend() : ac.resume(); }
+    if (!p) keys.ArrowLeft = keys.ArrowRight = false;
+  }
+  pauseBtn.addEventListener('click', () => setPaused(!paused));
+
+  // ---------- full screen ----------
+  const fsBtn = $('fs'), fsIcon = $('fsIcon');
+  const root = document.documentElement;
+  const canFull = !!(root.requestFullscreen || root.webkitRequestFullscreen) &&
+    (document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  function toggleFull() {
+    try {
+      if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else {
+        const p = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' });
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch (e) {}
+  }
+  function fsChanged() {
+    const on = isFull();
+    fsIcon.setAttribute('d', on ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5');
+    fsBtn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+    setTimeout(resize, 50);
+  }
+  if (canFull) {
+    fsBtn.style.display = 'flex';
+    fsBtn.addEventListener('click', toggleFull);
+    document.addEventListener('fullscreenchange', fsChanged);
+    document.addEventListener('webkitfullscreenchange', fsChanged);
+  }
+  $('resume').addEventListener('click', () => setPaused(false));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 
   function makeStars() {
     stars = Array.from({ length: 70 }, () => ({
@@ -169,33 +256,54 @@
   }
 
   function layout() {
-    const cols = W < 520 ? 5 : 7;
+    const cols = (W < 520 ? 5 : 7) + (wave >= 4 ? 1 : 0);
     const size = Math.min(W / (cols + 1.6), 68);
     const gap = size * 1.25;
-    return { cols, size, gap, left: (W - (cols - 1) * gap) / 2, top: Math.max(80, H * 0.12) };
+    return { cols, size, gap, left: (W - (cols - 1) * gap) / 2, top: Math.max(96, H * 0.13) };
+  }
+
+  // difficulty for the current level
+  function diff() {
+    const lv = wave;
+    return {
+      rows: lv <= 2 ? lv + 1 : lv < 6 ? 4 : 5,
+      diveSpeed: Math.min(7, 2 + lv * 0.35),
+      diveEvery: Math.max(0.5, 2.8 - lv * 0.25),
+      squad: lv < 4 ? 1 : lv < 7 ? 2 : 3,
+      track: Math.min(2, 0.5 + lv * 0.12),
+      eggs: lv >= 2,
+      eggEvery: Math.max(0.45, 3.6 - lv * 0.35),
+      eggSpeed: Math.min(6, 1.8 + lv * 0.3),
+      swaySpeed: Math.min(2, 0.8 + lv * 0.08),
+      tough: lv < 4 ? 0 : Math.min(0.6, (lv - 3) * 0.12),
+    };
   }
 
   function newWave() {
     wave++;
-    dinos = [];
-    const L = layout();
-    const rows = Math.min(2 + wave, 4);
-    for (let r = 0; r < rows; r++) {
+    dinos = []; eggs = [];
+    const L = layout(), D = diff();
+    for (let r = 0; r < D.rows; r++) {
       for (let c = 0; c < L.cols; c++) {
         dinos.push({
           col: c, row: r, state: 'enter',
           x: W / 2 + (Math.random() - 0.5) * W, y: -80 - r * 60 - Math.random() * 80,
           emoji: DINOS[(r + wave) % DINOS.length],
-          phase: Math.random() * Math.PI * 2, spin: 0, vy: 0
+          phase: Math.random() * Math.PI * 2, spin: 0, vy: 0,
+          hp: Math.random() < D.tough ? 2 : 1
         });
       }
     }
     nextDive = t + 2.5;
+    nextEgg = t + 3.5;
+    bannerText = 'Level ' + wave + '!';
+    bannerUntil = t + 1.8;
+    hud();
   }
 
   function slot(d) {
     const L = layout();
-    const sway = Math.sin(t * 0.8) * Math.min(40, W * 0.06);
+    const sway = Math.sin(t * diff().swaySpeed) * Math.min(40, W * 0.06);
     return {
       x: L.left + d.col * L.gap + sway,
       y: L.top + d.row * L.gap * 0.9 + Math.sin(t * 3 + d.phase) * 4
@@ -204,15 +312,36 @@
 
   function start() {
     audio();
-    startEl.style.display = 'none';
-    score = 0; wave = 0; bubbles = []; floaters = []; confetti = [];
-    scoreEl.textContent = '⭐ 0';
-    player = { x: W / 2, y: H - Math.max(70, H * 0.1), bump: 0 };
+    startEl.hidden = true; overEl.hidden = true; pausedEl.hidden = true;
+    score = 0; wave = 0; lives = 3;
+    bubbles = []; eggs = []; chicks = []; floaters = []; confetti = [];
+    player = { x: W / 2, y: H - Math.max(70, H * 0.1), bump: 0, safe: 0 };
     targetX = player.x;
+    nextWaveAt = 0;
+    running = true; paused = false;
+    pauseBtn.style.display = 'block';
     newWave();
-    running = true;
   }
-  document.getElementById('play').addEventListener('click', start);
+  $('play').addEventListener('click', start);
+  $('again').addEventListener('click', start);
+
+  function gameOver() {
+    running = false;
+    pauseBtn.style.display = 'none';
+    sfx.done();
+    $('overText').textContent = `You bubbled ${score} dino${score === 1 ? '' : 's'} and got to level ${wave}!`;
+    setTimeout(() => { overEl.hidden = false; }, 900);
+  }
+
+  function ouch(word) {
+    if (player.safe > 0) return;
+    lives--;
+    player.safe = 2; player.bump = 1; shake = 0.4;
+    sfx.oops();
+    say(player.x, player.y - 55, word, 30, '#5ED3F3');
+    hud();
+    if (lives <= 0) gameOver();
+  }
 
   // ---------- input ----------
   function pointer(e) {
@@ -222,7 +351,14 @@
   }
   canvas.addEventListener('pointerdown', pointer);
   canvas.addEventListener('pointermove', pointer);
-  window.addEventListener('keydown', e => { keys[e.key] = true; });
+  window.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      if (running) { e.preventDefault(); setPaused(!paused); }
+      return;
+    }
+    if ((e.key === 'f' || e.key === 'F') && canFull) { toggleFull(); return; }
+    keys[e.key] = true;
+  });
   window.addEventListener('keyup', e => { keys[e.key] = false; });
 
   // ---------- effects ----------
@@ -239,11 +375,19 @@
 
   // ---------- update ----------
   function update(dt) {
+    if (paused) return;
     t += dt;
     for (const s of stars) { s.y += s.v * dt * 60; if (s.y > H) { s.y = 0; s.x = Math.random() * W; } }
+    for (const c of confetti) { c.x += c.vx; c.y += c.vy; c.vy += 0.15; c.life -= dt * 0.8; c.rot += 0.2; }
+    confetti = confetti.filter(c => c.life > 0);
+    for (const f of floaters) { f.y -= dt * 40; f.life -= dt * 0.9; }
+    floaters = floaters.filter(f => f.life > 0);
+    for (const c of chicks) { c.y -= dt * 120; c.x += Math.sin(t * 8 + c.p) * 2; }
+    chicks = chicks.filter(c => c.y > -60);
+    shake = Math.max(0, shake - dt);
     if (!running) return;
 
-    const L = layout();
+    const L = layout(), D = diff();
 
     // player
     if (keys.ArrowLeft) targetX -= 9 * dt * 60;
@@ -251,23 +395,46 @@
     targetX = Math.max(30, Math.min(W - 30, targetX));
     player.x += (targetX - player.x) * Math.min(1, dt * 12);
     player.bump = Math.max(0, player.bump - dt * 3);
+    player.safe = Math.max(0, player.safe - dt);
 
     // auto fire
-    if (t - lastShot > 0.32) {
+    if (t - lastShot > 0.3) {
       lastShot = t;
       bubbles.push({ x: player.x, y: player.y - 30, r: 9 + Math.random() * 4, wob: Math.random() * 6 });
       sfx.shoot();
     }
     for (const b of bubbles) { b.y -= 9 * dt * 60; b.wob += dt * 10; }
-    bubbles = bubbles.filter(b => b.y > -30 && !b.hit);
 
     // dive scheduling
     const inFormation = dinos.filter(d => d.state === 'form');
     if (t > nextDive && inFormation.length) {
-      const d = inFormation[Math.floor(Math.random() * inFormation.length)];
-      d.state = 'dive'; d.dx = d.x; d.vy = 2.2 + Math.min(wave, 5) * 0.25;
-      nextDive = t + Math.max(1.1, 2.6 - wave * 0.2);
+      for (let i = 0; i < D.squad && inFormation.length; i++) {
+        const d = inFormation.splice(Math.floor(Math.random() * inFormation.length), 1)[0];
+        d.state = 'dive'; d.dx = d.x; d.vy = D.diveSpeed * (0.85 + Math.random() * 0.3);
+      }
+      nextDive = t + D.diveEvery;
     }
+
+    // egg dropping
+    const layers = dinos.filter(d => d.state === 'form' || d.state === 'dive');
+    if (D.eggs && t > nextEgg && layers.length) {
+      const d = layers[Math.floor(Math.random() * layers.length)];
+      eggs.push({ x: d.x, y: d.y + L.size * 0.4, vy: D.eggSpeed, rot: 0 });
+      nextEgg = t + D.eggEvery * (0.7 + Math.random() * 0.6);
+    }
+    for (const e of eggs) {
+      e.y += e.vy * dt * 60; e.rot += dt * 3;
+      if (!e.gone && Math.hypot(e.x - player.x, e.y - player.y) < 30) { e.gone = true; ouch('Splat!'); }
+      for (const b of bubbles) {
+        if (!e.gone && !b.hit && Math.hypot(b.x - e.x, b.y - e.y) < L.size * 0.28 + b.r) {
+          b.hit = true; e.gone = true;
+          chicks.push({ x: e.x, y: e.y, p: Math.random() * 6 });
+          sfx.peep(); burst(e.x, e.y, 6);
+          say(e.x, e.y - 20, 'Peep!', 22, '#FFFFFF');
+        }
+      }
+    }
+    eggs = eggs.filter(e => !e.gone && e.y < H + 40);
 
     // dinos
     for (const d of dinos) {
@@ -280,12 +447,10 @@
         const s = slot(d); d.x = s.x; d.y = s.y;
       } else if (d.state === 'dive') {
         d.y += d.vy * dt * 60;
-        d.dx += (player.x - d.dx) * dt * 0.6;
+        d.dx += (player.x - d.dx) * dt * D.track;
         d.x = d.dx + Math.sin(d.y / 45 + d.phase) * 70;
-        // silly bump with the rocket: no harm, just a boing
-        if (!d.bumped && Math.hypot(d.x - player.x, d.y - player.y) < L.size * 0.75) {
-          d.bumped = true; player.bump = 1; sfx.boing();
-          say(player.x, player.y - 50, 'Boing!', 30, '#5ED3F3');
+        if (!d.bumped && running && Math.hypot(d.x - player.x, d.y - player.y) < L.size * 0.7) {
+          d.bumped = true; ouch('Boing!');
         }
         if (d.y > H + 50) { d.y = -60; d.x = Math.random() * W; d.state = 'back'; d.bumped = false; }
       } else if (d.state === 'bubble') {
@@ -297,8 +462,14 @@
         for (const b of bubbles) {
           if (!b.hit && Math.hypot(b.x - d.x, b.y - d.y) < L.size * 0.5 + b.r) {
             b.hit = true;
+            if (d.hp > 1) {
+              d.hp--;
+              sfx.tink(); burst(d.x, d.y - L.size * 0.4, 5);
+              say(d.x, d.y - 30, 'Tink!', 22, '#5ED3F3');
+              break;
+            }
             d.state = 'bubble'; d.vy = -1;
-            score++; scoreEl.textContent = '⭐ ' + score;
+            score++; hud();
             sfx.pop(); burst(d.x, d.y, 10);
             say(d.x, d.y - 20, WORDS[Math.floor(Math.random() * WORDS.length)]);
             break;
@@ -306,19 +477,24 @@
         }
       }
     }
+    bubbles = bubbles.filter(b => b.y > -30 && !b.hit);
     dinos = dinos.filter(d => !(d.state === 'bubble' && d.y < -90));
 
-    if (dinos.length === 0 && cheerUntil < t) {
-      cheerUntil = t + 2.4;
+    // level cleared
+    if (running && dinos.length === 0 && !nextWaveAt) {
+      bannerText = 'Hooray!';
+      bannerUntil = t + 2.2;
+      eggs = [];
       sfx.yay();
       for (let i = 0; i < 6; i++) burst(Math.random() * W, Math.random() * H * 0.6, 16);
-      setTimeout(() => { if (running) newWave(); }, 2400);
+      if (lives < MAX_LIVES) {
+        lives++; hud();
+        setTimeout(sfx.heart, 500);
+        say(player.x, player.y - 60, '+❤️', 34, '#FF7AC6');
+      }
+      nextWaveAt = t + 2.4;
     }
-
-    for (const c of confetti) { c.x += c.vx; c.y += c.vy; c.vy += 0.15; c.life -= dt * 0.8; c.rot += 0.2; }
-    confetti = confetti.filter(c => c.life > 0);
-    for (const f of floaters) { f.y -= dt * 40; f.life -= dt * 0.9; }
-    floaters = floaters.filter(f => f.life > 0);
+    if (nextWaveAt && t >= nextWaveAt) { nextWaveAt = 0; newWave(); }
   }
 
   // ---------- draw ----------
@@ -342,14 +518,18 @@
   }
 
   function draw() {
+    ctx.save();
     ctx.clearRect(0, 0, W, H);
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * 12 * shake, (Math.random() - 0.5) * 12 * shake);
     ctx.fillStyle = '#fff';
     for (const s of stars) { ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t + s.x)); ctx.fillRect(s.x, s.y, s.s, s.s); }
     ctx.globalAlpha = 1;
-    if (!player) return;
+    if (!player) { ctx.restore(); return; }
 
     const L = layout();
     for (const b of bubbles) bubbleShape(b.x + Math.sin(b.wob) * 2, b.y, b.r);
+    for (const e of eggs) emoji('🥚', e.x, e.y, L.size * 0.5, Math.sin(e.rot) * 0.4);
+    for (const c of chicks) emoji('🐥', c.x, c.y, L.size * 0.55, Math.sin(t * 10 + c.p) * 0.3);
 
     for (const d of dinos) {
       if (d.state === 'bubble') {
@@ -358,16 +538,22 @@
       } else {
         const wiggle = d.state === 'dive' ? Math.sin(t * 12) * 0.25 : Math.sin(t * 4 + d.phase) * 0.12;
         emoji(d.emoji, d.x, d.y, L.size, wiggle);
+        if (d.hp > 1) emoji('⛑️', d.x, d.y - L.size * 0.45, L.size * 0.5, wiggle);
       }
     }
 
-    // rocket
-    const squish = 1 + player.bump * 0.3;
-    ctx.save(); ctx.translate(player.x, player.y); ctx.scale(squish, 1 / squish);
-    emoji('🚀', 0, 0, 54, -Math.PI / 4);
-    ctx.restore();
-    ctx.fillStyle = COLORS[Math.floor(t * 12) % 3];
-    ctx.beginPath(); ctx.arc(player.x + Math.sin(t * 30) * 3, player.y + 34, 5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+    // rocket (blinks while safe after a bump)
+    const visible = !(player.safe > 0 && Math.floor(t * 10) % 2 === 0) && (running || lives > 0);
+    if (visible) {
+      const squish = 1 + player.bump * 0.3;
+      ctx.save(); ctx.translate(player.x, player.y); ctx.scale(squish, 1 / squish);
+      emoji('🚀', 0, 0, 54, -Math.PI / 4);
+      ctx.restore();
+      if (running) {
+        ctx.fillStyle = COLORS[Math.floor(t * 12) % 3];
+        ctx.beginPath(); ctx.arc(player.x + Math.sin(t * 30) * 3, player.y + 34, 5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
 
     for (const c of confetti) {
       ctx.save(); ctx.globalAlpha = Math.max(0, c.life); ctx.translate(c.x, c.y); ctx.rotate(c.rot);
@@ -382,14 +568,15 @@
     }
     ctx.globalAlpha = 1;
 
-    if (t < cheerUntil) {
+    if (running && t < bannerUntil) {
       const s = 1 + Math.sin(t * 8) * 0.06;
-      ctx.save(); ctx.translate(W / 2, H * 0.42); ctx.scale(s, s); ctx.rotate(-0.06);
-      ctx.font = `800 ${Math.min(96, W * 0.18)}px "Baloo 2", "Trebuchet MS", sans-serif`;
-      ctx.lineWidth = 10; ctx.strokeStyle = '#FF7AC6'; ctx.strokeText('Hooray!', 0, 0);
-      ctx.fillStyle = '#FFD84D'; ctx.fillText('Hooray!', 0, 0);
+      ctx.save(); ctx.translate(W / 2, H * 0.45); ctx.scale(s, s); ctx.rotate(-0.06);
+      ctx.font = `800 ${Math.min(96, W * 0.17)}px "Baloo 2", "Trebuchet MS", sans-serif`;
+      ctx.lineWidth = 10; ctx.strokeStyle = '#FF7AC6'; ctx.strokeText(bannerText, 0, 0);
+      ctx.fillStyle = '#FFD84D'; ctx.fillText(bannerText, 0, 0);
       ctx.restore();
     }
+    ctx.restore();
   }
 
   let last = performance.now();
