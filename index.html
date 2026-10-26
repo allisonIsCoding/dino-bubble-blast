@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dino Bubble Blast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #2B1B5A;
+    --sky-deep: #160C36;
+    --pink: #FF7AC6;
+    --lime: #B8F35A;
+    --sun: #FFD84D;
+    --cyan: #5ED3F3;
+    --ink: #FFFFFF;
+    color-scheme: dark;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --sky: #24164D; --sky-deep: #110930; }
+  }
+  :root[data-theme="dark"] { --sky: #24164D; --sky-deep: #110930; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--sky-deep);
+    color: var(--ink);
+    font-family: "Baloo 2", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(120% 80% at 50% 110%, var(--sky) 0%, var(--sky-deep) 70%);
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud {
+    position: absolute; top: 10px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+    font-size: 26px; font-weight: 800;
+    text-shadow: 0 2px 0 rgba(0,0,0,.35);
+  }
+  #mute {
+    pointer-events: auto;
+    font: inherit; font-size: 24px;
+    background: rgba(255,255,255,.12);
+    color: var(--ink);
+    border: 2px solid rgba(255,255,255,.35);
+    border-radius: 999px;
+    width: 48px; height: 48px;
+    cursor: pointer;
+  }
+  #mute:focus-visible, #play:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
+  #start {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; padding: 24px;
+    background: rgba(22,12,54,.55);
+  }
+  #start h1 {
+    margin: 0;
+    font-size: clamp(44px, 13vw, 96px);
+    line-height: .95;
+    font-weight: 800;
+    color: var(--sun);
+    text-shadow: 0 5px 0 var(--pink), 0 10px 0 rgba(0,0,0,.25);
+    transform: rotate(-4deg);
+  }
+  #start .dinos { font-size: clamp(54px, 16vw, 110px); animation: bob 1.2s ease-in-out infinite alternate; }
+  @keyframes bob { from { transform: translateY(-6px) rotate(-6deg); } to { transform: translateY(6px) rotate(6deg); } }
+  #start p { margin: 0; font-size: 22px; font-weight: 600; max-width: 22ch; }
+  #play {
+    font: inherit; font-weight: 800; font-size: 34px;
+    color: var(--sky-deep);
+    background: var(--lime);
+    border: none; border-radius: 999px;
+    padding: 10px 46px 6px;
+    box-shadow: 0 6px 0 #6FA82A;
+    cursor: pointer;
+  }
+  #play:active { transform: translateY(4px); box-shadow: 0 2px 0 #6FA82A; }
+  @media (prefers-reduced-motion: reduce) { #start .dinos { animation: none; } }
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud"><span id="score">⭐ 0</span><button id="mute" aria-label="Sound on or off">🔊</button></div>
+  <div id="start">
+    <div class="dinos" aria-hidden="true">🦖🫧🦕</div>
+    <h1>Dino Bubble Blast</h1>
+    <p>Slide your finger to move. Bubbles shoot all by themselves!</p>
+    <button id="play">Play!</button>
+  </div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const startEl = document.getElementById('start');
+  const muteBtn = document.getElementById('mute');
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (player) player.y = H - Math.max(70, H * 0.1);
+  }
+
+  // ---------- sound ----------
+  let ac = null, muted = false;
+  function audio() {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    if (ac && ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function tone(type, f1, f2, dur, vol = 0.15, delay = 0) {
+    if (muted || !ac) return;
+    const t = ac.currentTime + delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f1, t);
+    o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfx = {
+    shoot: () => tone('sine', 900, 1400, 0.06, 0.04),
+    pop:   () => { tone('triangle', 520, 1500, 0.35, 0.18); tone('sine', 1200, 1800, 0.15, 0.08, 0.12); },
+    boing: () => tone('triangle', 140, 480, 0.3, 0.2),
+    yay:   () => [523, 659, 784, 1047].forEach((f, i) => tone('square', f, f * 1.01, 0.18, 0.06, i * 0.11)),
+  };
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+  });
+
+  // ---------- world ----------
+  const DINOS = ['🦖', '🦕', '🦖', '🦕', '🐊', '🐉'];
+  const WORDS = ['Pop!', 'Wheee!', 'Boop!', 'Bye-bye!', 'Hee hee!', 'Bloop!'];
+  const COLORS = ['#FF7AC6', '#B8F35A', '#FFD84D', '#5ED3F3', '#FFFFFF'];
+  let player = null, bubbles = [], dinos = [], floaters = [], confetti = [], stars = [];
+  let score = 0, wave = 0, running = false, lastShot = 0, nextDive = 0, cheerUntil = 0, t = 0;
+  let targetX = 0;
+  const keys = {};
+
+  function makeStars() {
+    stars = Array.from({ length: 70 }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      s: Math.random() * 2 + 0.5, v: Math.random() * 0.4 + 0.15
+    }));
+  }
+
+  function layout() {
+    const cols = W < 520 ? 5 : 7;
+    const size = Math.min(W / (cols + 1.6), 68);
+    const gap = size * 1.25;
+    return { cols, size, gap, left: (W - (cols - 1) * gap) / 2, top: Math.max(80, H * 0.12) };
+  }
+
+  function newWave() {
+    wave++;
+    dinos = [];
+    const L = layout();
+    const rows = Math.min(2 + wave, 4);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < L.cols; c++) {
+        dinos.push({
+          col: c, row: r, state: 'enter',
+          x: W / 2 + (Math.random() - 0.5) * W, y: -80 - r * 60 - Math.random() * 80,
+          emoji: DINOS[(r + wave) % DINOS.length],
+          phase: Math.random() * Math.PI * 2, spin: 0, vy: 0
+        });
+      }
+    }
+    nextDive = t + 2.5;
+  }
+
+  function slot(d) {
+    const L = layout();
+    const sway = Math.sin(t * 0.8) * Math.min(40, W * 0.06);
+    return {
+      x: L.left + d.col * L.gap + sway,
+      y: L.top + d.row * L.gap * 0.9 + Math.sin(t * 3 + d.phase) * 4
+    };
+  }
+
+  function start() {
+    audio();
+    startEl.style.display = 'none';
+    score = 0; wave = 0; bubbles = []; floaters = []; confetti = [];
+    scoreEl.textContent = '⭐ 0';
+    player = { x: W / 2, y: H - Math.max(70, H * 0.1), bump: 0 };
+    targetX = player.x;
+    newWave();
+    running = true;
+  }
+  document.getElementById('play').addEventListener('click', start);
+
+  // ---------- input ----------
+  function pointer(e) {
+    audio();
+    const r = canvas.getBoundingClientRect();
+    targetX = e.clientX - r.left;
+  }
+  canvas.addEventListener('pointerdown', pointer);
+  canvas.addEventListener('pointermove', pointer);
+  window.addEventListener('keydown', e => { keys[e.key] = true; });
+  window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  // ---------- effects ----------
+  function burst(x, y, n = 14) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = Math.random() * 4 + 2;
+      confetti.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 2,
+        c: COLORS[i % COLORS.length], life: 1, r: Math.random() * 4 + 3, rot: Math.random() * 6 });
+    }
+  }
+  function say(x, y, text, size = 26, color = '#FFD84D') {
+    floaters.push({ x, y, text, size, color, life: 1 });
+  }
+
+  // ---------- update ----------
+  function update(dt) {
+    t += dt;
+    for (const s of stars) { s.y += s.v * dt * 60; if (s.y > H) { s.y = 0; s.x = Math.random() * W; } }
+    if (!running) return;
+
+    const L = layout();
+
+    // player
+    if (keys.ArrowLeft) targetX -= 9 * dt * 60;
+    if (keys.ArrowRight) targetX += 9 * dt * 60;
+    targetX = Math.max(30, Math.min(W - 30, targetX));
+    player.x += (targetX - player.x) * Math.min(1, dt * 12);
+    player.bump = Math.max(0, player.bump - dt * 3);
+
+    // auto fire
+    if (t - lastShot > 0.32) {
+      lastShot = t;
+      bubbles.push({ x: player.x, y: player.y - 30, r: 9 + Math.random() * 4, wob: Math.random() * 6 });
+      sfx.shoot();
+    }
+    for (const b of bubbles) { b.y -= 9 * dt * 60; b.wob += dt * 10; }
+    bubbles = bubbles.filter(b => b.y > -30 && !b.hit);
+
+    // dive scheduling
+    const inFormation = dinos.filter(d => d.state === 'form');
+    if (t > nextDive && inFormation.length) {
+      const d = inFormation[Math.floor(Math.random() * inFormation.length)];
+      d.state = 'dive'; d.dx = d.x; d.vy = 2.2 + Math.min(wave, 5) * 0.25;
+      nextDive = t + Math.max(1.1, 2.6 - wave * 0.2);
+    }
+
+    // dinos
+    for (const d of dinos) {
+      if (d.state === 'enter' || d.state === 'back') {
+        const s = slot(d);
+        d.x += (s.x - d.x) * Math.min(1, dt * 3);
+        d.y += (s.y - d.y) * Math.min(1, dt * 3);
+        if (Math.hypot(s.x - d.x, s.y - d.y) < 3) d.state = 'form';
+      } else if (d.state === 'form') {
+        const s = slot(d); d.x = s.x; d.y = s.y;
+      } else if (d.state === 'dive') {
+        d.y += d.vy * dt * 60;
+        d.dx += (player.x - d.dx) * dt * 0.6;
+        d.x = d.dx + Math.sin(d.y / 45 + d.phase) * 70;
+        // silly bump with the rocket: no harm, just a boing
+        if (!d.bumped && Math.hypot(d.x - player.x, d.y - player.y) < L.size * 0.75) {
+          d.bumped = true; player.bump = 1; sfx.boing();
+          say(player.x, player.y - 50, 'Boing!', 30, '#5ED3F3');
+        }
+        if (d.y > H + 50) { d.y = -60; d.x = Math.random() * W; d.state = 'back'; d.bumped = false; }
+      } else if (d.state === 'bubble') {
+        d.vy -= dt * 3; d.y += d.vy * dt * 60; d.spin += dt * 2;
+        d.x += Math.sin(t * 4 + d.phase) * 1.2;
+      }
+
+      if (d.state !== 'bubble') {
+        for (const b of bubbles) {
+          if (!b.hit && Math.hypot(b.x - d.x, b.y - d.y) < L.size * 0.5 + b.r) {
+            b.hit = true;
+            d.state = 'bubble'; d.vy = -1;
+            score++; scoreEl.textContent = '⭐ ' + score;
+            sfx.pop(); burst(d.x, d.y, 10);
+            say(d.x, d.y - 20, WORDS[Math.floor(Math.random() * WORDS.length)]);
+            break;
+          }
+        }
+      }
+    }
+    dinos = dinos.filter(d => !(d.state === 'bubble' && d.y < -90));
+
+    if (dinos.length === 0 && cheerUntil < t) {
+      cheerUntil = t + 2.4;
+      sfx.yay();
+      for (let i = 0; i < 6; i++) burst(Math.random() * W, Math.random() * H * 0.6, 16);
+      setTimeout(() => { if (running) newWave(); }, 2400);
+    }
+
+    for (const c of confetti) { c.x += c.vx; c.y += c.vy; c.vy += 0.15; c.life -= dt * 0.8; c.rot += 0.2; }
+    confetti = confetti.filter(c => c.life > 0);
+    for (const f of floaters) { f.y -= dt * 40; f.life -= dt * 0.9; }
+    floaters = floaters.filter(f => f.life > 0);
+  }
+
+  // ---------- draw ----------
+  function emoji(ch, x, y, size, rot = 0) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+  }
+  function bubbleShape(x, y, r) {
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.6, 'rgba(94,211,243,0.18)');
+    g.addColorStop(1, 'rgba(255,122,198,0.45)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.ellipse(x - r * 0.4, y - r * 0.45, r * 0.18, r * 0.1, -0.6, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    for (const s of stars) { ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t + s.x)); ctx.fillRect(s.x, s.y, s.s, s.s); }
+    ctx.globalAlpha = 1;
+    if (!player) return;
+
+    const L = layout();
+    for (const b of bubbles) bubbleShape(b.x + Math.sin(b.wob) * 2, b.y, b.r);
+
+    for (const d of dinos) {
+      if (d.state === 'bubble') {
+        bubbleShape(d.x, d.y, L.size * 0.72);
+        emoji(d.emoji, d.x, d.y, L.size * 0.75, Math.sin(d.spin) * 0.5 + Math.PI);
+      } else {
+        const wiggle = d.state === 'dive' ? Math.sin(t * 12) * 0.25 : Math.sin(t * 4 + d.phase) * 0.12;
+        emoji(d.emoji, d.x, d.y, L.size, wiggle);
+      }
+    }
+
+    // rocket
+    const squish = 1 + player.bump * 0.3;
+    ctx.save(); ctx.translate(player.x, player.y); ctx.scale(squish, 1 / squish);
+    emoji('🚀', 0, 0, 54, -Math.PI / 4);
+    ctx.restore();
+    ctx.fillStyle = COLORS[Math.floor(t * 12) % 3];
+    ctx.beginPath(); ctx.arc(player.x + Math.sin(t * 30) * 3, player.y + 34, 5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+
+    for (const c of confetti) {
+      ctx.save(); ctx.globalAlpha = Math.max(0, c.life); ctx.translate(c.x, c.y); ctx.rotate(c.rot);
+      ctx.fillStyle = c.c; ctx.fillRect(-c.r, -c.r / 2, c.r * 2, c.r); ctx.restore();
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const f of floaters) {
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.font = `800 ${f.size}px "Baloo 2", "Trebuchet MS", sans-serif`;
+      ctx.lineWidth = 5; ctx.strokeStyle = '#160C36'; ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+
+    if (t < cheerUntil) {
+      const s = 1 + Math.sin(t * 8) * 0.06;
+      ctx.save(); ctx.translate(W / 2, H * 0.42); ctx.scale(s, s); ctx.rotate(-0.06);
+      ctx.font = `800 ${Math.min(96, W * 0.18)}px "Baloo 2", "Trebuchet MS", sans-serif`;
+      ctx.lineWidth = 10; ctx.strokeStyle = '#FF7AC6'; ctx.strokeText('Hooray!', 0, 0);
+      ctx.fillStyle = '#FFD84D'; ctx.fillText('Hooray!', 0, 0);
+      ctx.restore();
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    update(dt); draw();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', resize);
+  resize(); makeStars();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
