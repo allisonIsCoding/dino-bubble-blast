@@ -88,6 +88,7 @@
   .overlay h2 { margin: 0; font-size: clamp(34px, 9vw, 60px); line-height: 1; font-weight: 800; color: var(--sun); text-shadow: 0 4px 0 var(--pink); }
   .overlay p { margin: 0; font-size: 21px; font-weight: 600; max-width: 26ch; }
   #start { background: rgba(22,12,54,.55); }
+  #shop { background: rgba(22,12,54,.97); }
   #start h1 {
     margin: 0;
     font-size: clamp(44px, 13vw, 96px);
@@ -186,7 +187,7 @@
     <div class="big" aria-hidden="true">🦖👑</div>
     <h2>Full Game</h2>
     <ul class="perks">
-      <li>🦕 Levels 51 to 200</li>
+      <li>🦕 Levels 31 to 200</li>
       <li>❤️ Start with more hearts</li>
       <li>🌟 All the power-ups</li>
       <li>🔁 Keep going when you lose</li>
@@ -215,7 +216,7 @@
 
   // ---------- full game / store ----------
   const PRODUCT = 'dino.fullgame';
-  const FREE_LEVELS = 50;
+  const FREE_LEVELS = 30;
   const MAX_LEVEL = 200;
   // In the iOS app, Swift sets up a "store" message handler. In a browser this is the free demo.
   const IN_APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.store);
@@ -269,8 +270,9 @@
     full = v;
     save('dbb-full', v ? '1' : '0');
     renderSkins(); refreshShop(); renderContinue();
+    // once owned, close the shop by itself (after a moment so any message can be read)
+    if (v && !shopEl.hidden) setTimeout(() => { shopEl.hidden = true; }, 1600);
     if (v && !was) {
-      shopEl.hidden = true;
       if (running || player) { sfx.yay(); }
       if (!overEl.hidden) renderOver();
     }
@@ -287,6 +289,7 @@
     }
     b.disabled = full;
     b.textContent = full ? 'Unlocked! 🎉' : 'Unlock' + (price ? ' ' + price : '');
+    $('shopClose').textContent = full ? 'Close' : 'Not now';
   }
 
   function askToUnlock() { shopNote(''); refreshShop(); shopEl.hidden = false; }
