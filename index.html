@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Dino Bubble Blast</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -39,6 +39,7 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
   #game {
@@ -76,13 +77,14 @@
   .overlay {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 16px; text-align: center; padding: 24px;
-    background: rgba(22,12,54,.7);
+    gap: 14px; text-align: center; padding: 24px;
+    background: rgba(22,12,54,.78);
+    overflow-y: auto;
   }
   .overlay[hidden] { display: none; }
-  .overlay .big { font-size: clamp(64px, 18vw, 120px); line-height: 1; }
-  .overlay h2 { margin: 0; font-size: clamp(36px, 10vw, 64px); line-height: 1; font-weight: 800; color: var(--sun); text-shadow: 0 4px 0 var(--pink); }
-  .overlay p { margin: 0; font-size: 22px; font-weight: 600; max-width: 24ch; }
+  .overlay .big { font-size: clamp(60px, 16vw, 110px); line-height: 1; }
+  .overlay h2 { margin: 0; font-size: clamp(34px, 9vw, 60px); line-height: 1; font-weight: 800; color: var(--sun); text-shadow: 0 4px 0 var(--pink); }
+  .overlay p { margin: 0; font-size: 21px; font-weight: 600; max-width: 26ch; }
   #start { background: rgba(22,12,54,.55); }
   #start h1 {
     margin: 0;
@@ -96,16 +98,46 @@
   #start .big { animation: bob 1.2s ease-in-out infinite alternate; }
   @keyframes bob { from { transform: translateY(-6px) rotate(-6deg); } to { transform: translateY(6px) rotate(6deg); } }
   .go {
-    font: inherit; font-weight: 800; font-size: 34px;
+    font: inherit; font-weight: 800; font-size: 32px;
     color: var(--sky-deep);
     background: var(--lime);
     border: none; border-radius: 999px;
-    padding: 10px 46px 6px;
+    padding: 10px 42px 6px;
     box-shadow: 0 6px 0 #6FA82A;
     cursor: pointer;
   }
+  .go.alt { background: var(--sun); box-shadow: 0 6px 0 #C9A21E; font-size: 26px; }
   .go:active { transform: translateY(4px); box-shadow: 0 2px 0 #6FA82A; }
-  #mute:focus-visible, #pause:focus-visible, #fs:focus-visible, .go:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
+  .go[disabled] { opacity: .6; cursor: default; }
+  .link {
+    font: inherit; font-size: 18px; font-weight: 600;
+    background: none; border: none; color: var(--ink);
+    text-decoration: underline; text-underline-offset: 4px;
+    opacity: .85; cursor: pointer; padding: 6px 10px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .skins { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 420px; }
+  .skin {
+    position: relative;
+    width: 58px; height: 58px; border-radius: 18px;
+    font-size: 30px; line-height: 1;
+    background: rgba(255,255,255,.1);
+    border: 3px solid rgba(255,255,255,.25);
+    cursor: pointer; color: var(--ink);
+  }
+  .skin.on { border-color: var(--lime); background: rgba(184,243,90,.18); }
+  .skin .lock { position: absolute; right: -6px; bottom: -6px; font-size: 18px; }
+  .perks { list-style: none; margin: 0; padding: 0; font-size: 21px; font-weight: 600; text-align: left; }
+  .perks li { margin: 4px 0; }
+  .note { font-size: 16px !important; opacity: .8; min-height: 1.2em; }
+  .opts { display: grid; grid-template-columns: repeat(2, 110px); gap: 12px; }
+  .opts button {
+    font: inherit; font-weight: 800; font-size: 30px;
+    height: 70px; border-radius: 18px; border: none; cursor: pointer;
+    background: var(--cyan); color: var(--sky-deep);
+  }
+  #mute:focus-visible, #pause:focus-visible, #fs:focus-visible, .go:focus-visible,
+  .link:focus-visible, .skin:focus-visible, .opts button:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
   @media (prefers-reduced-motion: reduce) { #start .big { animation: none; } }
 </style>
 </head>
@@ -117,23 +149,52 @@
     <span id="lives" aria-label="Lives"></span>
     <span class="btns"><button id="pause" aria-label="Pause">⏸️</button><button id="mute" aria-label="Sound on or off">🔊</button><button id="fs" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="fsIcon" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></span>
   </div>
+
   <div id="paused" class="overlay" hidden>
     <div class="big" aria-hidden="true">🦕💤</div>
     <h2>Paused</h2>
     <button id="resume" class="go">Keep playing!</button>
+    <button id="quit" class="link">Save &amp; quit</button>
+    <p class="note">You’ll pick up at the start of this level.</p>
   </div>
+
   <div id="over" class="overlay" hidden>
-    <div class="big" aria-hidden="true">🦖🎉</div>
-    <h2>Great job!</h2>
+    <div class="big" id="overBig" aria-hidden="true">🦖🎉</div>
+    <h2 id="overTitle">Great job!</h2>
     <p id="overText"></p>
+    <button id="keep" class="go">Keep going!</button>
+    <button id="more" class="go alt">🔒 Keep going</button>
     <button id="again" class="go">Play again!</button>
+    <button id="home" class="link">Home</button>
   </div>
+
   <div id="start" class="overlay">
     <div class="big" aria-hidden="true">🦖🫧🦕</div>
     <h1>Dino Bubble Blast</h1>
-    <p>Slide your finger to move. Bubbles shoot all by themselves! Dodge the dinos and their eggs.</p>
+    <p>Slide to move. Bubbles fire on their own. Dodge the dinos and their eggs.</p>
+    <p id="best" class="note"></p>
+    <div id="skins" class="skins" aria-label="Pick your ship"></div>
+    <button id="cont" class="go" hidden>Continue</button>
     <button id="play" class="go">Play!</button>
+    <button id="unlockLink" class="link">Unlock the full game</button>
   </div>
+
+  <div id="shop" class="overlay" hidden>
+    <div class="big" aria-hidden="true">🦖👑</div>
+    <h2>Full Game</h2>
+    <ul class="perks">
+      <li>🦕 Levels 51 to 200</li>
+      <li>❤️ Start with more hearts</li>
+      <li>🌟 All the power-ups</li>
+      <li>🔁 Keep going when you lose</li>
+      <li>🛸 Five fun new ships</li>
+    </ul>
+    <button id="buy" class="go">Unlock</button>
+    <p class="note" id="shopSub">One-time purchase. No ads, ever.</p>
+    <div class="row"><button id="restore" class="link">Restore purchase</button><button id="shopClose" class="link">Not now</button></div>
+    <p id="shopNote" class="note" aria-live="polite"></p>
+  </div>
+
 </div>
 <script>
 (() => {
@@ -141,9 +202,113 @@
   const canvas = $('c');
   const ctx = canvas.getContext('2d');
   const scoreEl = $('score'), lvlEl = $('lvl'), livesEl = $('lives');
-  const startEl = $('start'), pausedEl = $('paused'), overEl = $('over');
+  const startEl = $('start'), pausedEl = $('paused'), overEl = $('over'), shopEl = $('shop');
   const muteBtn = $('mute'), pauseBtn = $('pause');
   let W = 0, H = 0, DPR = 1;
+
+  // ---------- storage ----------
+  const load = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+  // ---------- full game / store ----------
+  const PRODUCT = 'dino.fullgame';
+  const FREE_LEVELS = 50;
+  const MAX_LEVEL = 200;
+  // In the iOS app, Swift sets up a "store" message handler. In a browser this is the free demo.
+  const IN_APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.store);
+  const APP_STORE_URL = ''; // paste the App Store link here once the app is live
+  let full = IN_APP && load('dbb-full') === '1';
+  let price = '';
+  const SKINS = [
+    { id: 'rocket',  icon: '🚀', rot: -Math.PI / 4, name: 'Rocket', free: true, trail: 'flame' },
+    { id: 'ufo',     icon: '🛸', rot: 0, name: 'UFO', trail: 'beam' },
+    { id: 'unicorn', icon: '🦄', rot: 0, name: 'Unicorn', trail: 'rainbow' },
+    { id: 'bee',     icon: '🐝', rot: 0, name: 'Bee', trail: 'pollen' },
+    { id: 'duck',    icon: '🦆', rot: 0, name: 'Duck', trail: 'bubbles' },
+    { id: 'copter',  icon: '🚁', rot: 0, name: 'Copter', trail: 'puff' },
+  ];
+  // particle trails for ships that don't have a built-in flame or beam
+  const TRAILS = {
+    rainbow: { n: 2, chance: 0.7, colors: ['#FF5E5E', '#FFB347', '#FFE66D', '#7CE38B', '#5ED3F3', '#B98CFF'], r: [2, 4] },
+    pollen:  { n: 1, chance: 0.6, colors: ['#FFD84D', '#FFF1A8'], r: [1.5, 3] },
+    bubbles: { n: 1, chance: 0.35, colors: ['rgba(255,255,255,0.85)'], r: [2, 5], ring: true },
+    puff:    { n: 1, chance: 0.5, colors: ['rgba(220,220,235,0.7)'], r: [3, 5], grow: true },
+  };
+  let skinId = load('dbb-skin') || 'rocket';
+  const skin = () => { const s = SKINS.find(s => s.id === skinId); return s && (s.free || full) ? s : SKINS[0]; };
+  const startLives = () => full ? 4 : 3;
+  const maxLives = () => full ? 5 : 3;
+
+  // In the iOS app, Swift handles purchases through a "store" message handler.
+  // In a plain browser there is no store, so unlocking works as a free test mode.
+  const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.store;
+  const Store = {
+    native: !!bridge,
+    post(m) { try { bridge.postMessage(m); } catch (e) {} },
+    buy() {
+      if (this.native) { shopNote('Talking to the App Store…'); this.post({ action: 'buy', product: PRODUCT }); }
+      else if (APP_STORE_URL) { window.open(APP_STORE_URL, '_blank'); }
+      else { shopNote('The full game is coming soon to the App Store!'); }
+    },
+    restore() {
+      if (this.native) { shopNote('Checking your purchases…'); this.post({ action: 'restore' }); }
+    },
+  };
+  window.dinoStore = {
+    setUnlocked: v => setUnlocked(!!v),
+    setPrice: p => { price = p || ''; refreshShop(); },
+    message: m => shopNote(m || ''),
+  };
+  if (Store.native) Store.post({ action: 'status', product: PRODUCT });
+
+  function setUnlocked(v) {
+    const was = full;
+    full = v;
+    save('dbb-full', v ? '1' : '0');
+    renderSkins(); refreshShop(); renderContinue();
+    if (v && !was) {
+      shopEl.hidden = true;
+      if (running || player) { sfx.yay(); }
+      if (!overEl.hidden) renderOver();
+    }
+  }
+  function shopNote(m) { $('shopNote').textContent = m; }
+  function refreshShop() {
+    const b = $('buy');
+    $('restore').hidden = !Store.native;
+    if (!Store.native) {
+      b.disabled = false;
+      b.textContent = APP_STORE_URL ? 'Get it on the App Store' : 'Coming soon';
+      $('shopSub').textContent = 'The full game is in the iPhone and iPad app. No ads, ever.';
+      return;
+    }
+    b.disabled = full;
+    b.textContent = full ? 'Unlocked! 🎉' : 'Unlock' + (price ? ' ' + price : '');
+  }
+
+  function askToUnlock() { shopNote(''); refreshShop(); shopEl.hidden = false; }
+  $('unlockLink').addEventListener('click', askToUnlock);
+  $('buy').addEventListener('click', () => Store.buy());
+  $('restore').addEventListener('click', () => Store.restore());
+  $('shopClose').addEventListener('click', () => { shopEl.hidden = true; });
+
+  // ---------- ship picker ----------
+  function renderSkins() {
+    const box = $('skins'); box.innerHTML = '';
+    for (const s of SKINS) {
+      const locked = !s.free && !full;
+      const btn = document.createElement('button');
+      btn.className = 'skin' + (skin().id === s.id ? ' on' : '');
+      btn.setAttribute('aria-label', s.name + (locked ? ' (locked)' : ''));
+      btn.textContent = s.icon;
+      if (locked) { const l = document.createElement('span'); l.className = 'lock'; l.textContent = '🔒'; btn.appendChild(l); }
+      btn.addEventListener('click', () => {
+        if (locked) { askToUnlock(); return; }
+        skinId = s.id; save('dbb-skin', s.id); renderSkins();
+      });
+      box.appendChild(btn);
+    }
+  }
 
   function resize() {
     const r = canvas.getBoundingClientRect();
@@ -178,6 +343,7 @@
     pop:   () => { tone('triangle', 520, 1500, 0.35, 0.18); tone('sine', 1200, 1800, 0.15, 0.08, 0.12); },
     peep:  () => { tone('sine', 1800, 2400, 0.08, 0.1); tone('sine', 1800, 2600, 0.08, 0.1, 0.1); },
     oops:  () => tone('sawtooth', 420, 110, 0.45, 0.12),
+    power: () => [660, 880, 1100, 1320].forEach((f, i) => tone('sine', f, f * 1.2, 0.12, 0.1, i * 0.06)),
     tink:  () => tone('square', 1600, 1500, 0.08, 0.06),
     heart: () => { tone('sine', 880, 1320, 0.15, 0.12); tone('sine', 1320, 1760, 0.2, 0.1, 0.12); },
     yay:   () => [523, 659, 784, 1047].forEach((f, i) => tone('square', f, f * 1.01, 0.18, 0.06, i * 0.11)),
@@ -192,11 +358,18 @@
   const DINOS = ['🦖', '🦕', '🦖', '🦕', '🐊', '🐉'];
   const WORDS = ['Pop!', 'Wheee!', 'Boop!', 'Bye-bye!', 'Hee hee!', 'Bloop!'];
   const COLORS = ['#FF7AC6', '#B8F35A', '#FFD84D', '#5ED3F3', '#FFFFFF'];
-  const MAX_LIVES = 5;
-  let player = null, bubbles = [], dinos = [], eggs = [], chicks = [], floaters = [], confetti = [], stars = [];
+  let player = null, bubbles = [], dinos = [], eggs = [], chicks = [], floaters = [], confetti = [], stars = [], trail = [];
   let score = 0, wave = 0, lives = 3, running = false, paused = false;
-  let lastShot = 0, nextDive = 0, nextEgg = 0, nextWaveAt = 0, t = 0;
-  let bannerText = '', bannerUntil = 0, shake = 0;
+  let powerups = [], rapidUntil = 0, tripleUntil = 0, shieldUntil = 0, lastDrop = 0;
+  const POWERS = [
+    { kind: 'rapid', icon: '⚡', word: 'Zoom zoom!', color: '#FFD84D', weight: 40, free: true },
+    { kind: 'triple', icon: '🌟', word: 'Triple bubbles!', color: '#B8F35A', weight: 30 },
+    { kind: 'shield', icon: '🛡️', word: 'Shield!', color: '#5ED3F3', weight: 22 },
+    { kind: 'heart', icon: '💖', word: '+❤️', color: '#FF7AC6', weight: 8 },
+  ];
+  const POWER_TIME = 6;
+  let lastShot = 0, nextDive = 0, nextEgg = 0, nextWaveAt = 0, freeEndAt = 0, t = 0, nextBossEgg = 0, winAt = 0;
+  let bannerText = '', bannerUntil = 0, shake = 0, overKind = 'lost';
   let targetX = 0;
   const keys = {};
 
@@ -217,12 +390,14 @@
     if (!p) keys.ArrowLeft = keys.ArrowRight = false;
   }
   pauseBtn.addEventListener('click', () => setPaused(!paused));
+  $('resume').addEventListener('click', () => setPaused(false));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 
   // ---------- full screen ----------
   const fsBtn = $('fs'), fsIcon = $('fsIcon');
   const root = document.documentElement;
   const canFull = !!(root.requestFullscreen || root.webkitRequestFullscreen) &&
-    (document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
   function toggleFull() {
     try {
@@ -239,14 +414,12 @@
     fsBtn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
     setTimeout(resize, 50);
   }
-  if (canFull) {
+  if (canFull && !bridge) {
     fsBtn.style.display = 'flex';
     fsBtn.addEventListener('click', toggleFull);
     document.addEventListener('fullscreenchange', fsChanged);
     document.addEventListener('webkitfullscreenchange', fsChanged);
   }
-  $('resume').addEventListener('click', () => setPaused(false));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 
   function makeStars() {
     stars = Array.from({ length: 70 }, () => ({
@@ -262,20 +435,21 @@
     return { cols, size, gap, left: (W - (cols - 1) * gap) / 2, top: Math.max(96, H * 0.13) };
   }
 
-  // difficulty for the current level
+  // 200-level curve: ramps steadily and reaches full difficulty around level 170
   function diff() {
     const lv = wave;
+    const e = Math.pow(Math.min(1, (lv - 1) / 170), 0.6);
     return {
       rows: lv <= 2 ? lv + 1 : lv < 6 ? 4 : 5,
-      diveSpeed: Math.min(7, 2 + lv * 0.35),
-      diveEvery: Math.max(0.5, 2.8 - lv * 0.25),
-      squad: lv < 4 ? 1 : lv < 7 ? 2 : 3,
-      track: Math.min(2, 0.5 + lv * 0.12),
+      diveSpeed: 2 + 6 * e,
+      diveEvery: 2.8 - 2.4 * e,
+      squad: Math.min(4, 1 + Math.floor(e * 3.5)),
+      track: 0.5 + 1.9 * e,
       eggs: lv >= 2,
-      eggEvery: Math.max(0.45, 3.6 - lv * 0.35),
-      eggSpeed: Math.min(6, 1.8 + lv * 0.3),
-      swaySpeed: Math.min(2, 0.8 + lv * 0.08),
-      tough: lv < 4 ? 0 : Math.min(0.6, (lv - 3) * 0.12),
+      eggEvery: 3.6 - 3.25 * e,
+      eggSpeed: 1.8 + 5.2 * e,
+      swaySpeed: 0.8 + 1.4 * e,
+      tough: lv < 4 ? 0 : Math.min(0.7, 0.05 + 0.65 * e),
     };
   }
 
@@ -283,20 +457,30 @@
     wave++;
     dinos = []; eggs = [];
     const L = layout(), D = diff();
-    for (let r = 0; r < D.rows; r++) {
+    const boss = wave % 10 === 0;
+    const rows = boss ? 2 : D.rows;
+    for (let r = 0; r < rows; r++) {
       for (let c = 0; c < L.cols; c++) {
         dinos.push({
-          col: c, row: r, state: 'enter',
+          col: c, row: r + (boss ? 2 : 0), state: 'enter',
           x: W / 2 + (Math.random() - 0.5) * W, y: -80 - r * 60 - Math.random() * 80,
           emoji: DINOS[(r + wave) % DINOS.length],
           phase: Math.random() * Math.PI * 2, spin: 0, vy: 0,
-          hp: Math.random() < D.tough ? 2 : 1
+          hp: Math.random() < D.tough ? (wave >= 80 && Math.random() < 0.35 ? 3 : 2) : 1
         });
       }
     }
+    // every 10th level: a giant boss dino that sways along the top and lobs eggs
+    if (boss) {
+      const hp = Math.round(12 + wave * 0.45);
+      dinos.push({ boss: true, state: 'boss', x: W / 2, y: -160, emoji: wave % 20 === 0 ? '🐉' : '🦖',
+        phase: 0, spin: 0, vy: 0, hp, maxHp: hp, flash: 0 });
+      nextBossEgg = t + 3;
+    }
     nextDive = t + 2.5;
     nextEgg = t + 3.5;
-    bannerText = 'Level ' + wave + '!';
+    bannerText = boss ? 'Boss level!' : 'Level ' + wave + '!';
+    saveRun(wave);
     bannerUntil = t + 1.8;
     hud();
   }
@@ -310,31 +494,127 @@
     };
   }
 
-  function start() {
+  function resume() {
+    running = true; paused = false;
+    pausedEl.hidden = true; overEl.hidden = true;
+    pauseBtn.style.display = 'block';
+  }
+
+  function start(run) {
     audio();
-    startEl.hidden = true; overEl.hidden = true; pausedEl.hidden = true;
-    score = 0; wave = 0; lives = 3;
+    startEl.hidden = true;
+    score = run ? run.score : 0;
+    wave = run ? run.level - 1 : 0;
+    lives = run ? Math.max(1, run.lives) : startLives();
     bubbles = []; eggs = []; chicks = []; floaters = []; confetti = [];
+    powerups = []; rapidUntil = tripleUntil = shieldUntil = 0; lastDrop = 0; trail = [];
     player = { x: W / 2, y: H - Math.max(70, H * 0.1), bump: 0, safe: 0 };
     targetX = player.x;
-    nextWaveAt = 0;
-    running = true; paused = false;
-    pauseBtn.style.display = 'block';
+    nextWaveAt = 0; freeEndAt = 0; winAt = 0;
+    resume();
     newWave();
   }
-  $('play').addEventListener('click', start);
-  $('again').addEventListener('click', start);
+  $('play').addEventListener('click', () => start());
+  $('again').addEventListener('click', () => start());
+  $('cont').addEventListener('click', () => {
+    const r = getRun();
+    if (!r) return start();
+    if (r.level > FREE_LEVELS && !full) { askToUnlock(); return; }
+    start(r);
+  });
+  $('quit').addEventListener('click', goHome);
+  function goHome() {
+    if (running && score) recordBest();
+    overEl.hidden = true; pausedEl.hidden = true;
+    running = false; paused = false; player = null;
+    dinos = []; eggs = []; powerups = []; bubbles = []; trail = [];
+    nextWaveAt = freeEndAt = winAt = 0;
+    if (ac) ac.resume();
+    pauseBtn.style.display = 'none'; pauseBtn.textContent = '⏸️';
+    lives = 0; wave = 0; hud(); scoreEl.textContent = '⭐ 0'; livesEl.textContent = '';
+    renderSkins(); showBest(); renderContinue(); startEl.hidden = false;
+  }
+  $('home').addEventListener('click', goHome);
+
+  // Keep going after losing (full game) or carry on past the free levels once unlocked
+  $('keep').addEventListener('click', () => {
+    audio();
+    if (overKind === 'lost') {
+      lives = startLives(); hud();
+      eggs = []; player.safe = 3;
+      resume();
+      say(player.x, player.y - 70, 'Keep going!', 30, '#B8F35A');
+    } else {
+      resume();
+      nextWaveAt = 0; newWave();
+    }
+  });
+  $('more').addEventListener('click', askToUnlock);
+
+  // ---------- saved progress (checkpoint at the start of each level) ----------
+  function getRun() {
+    try { const r = JSON.parse(load('dbb-run')); return r && r.level > 1 ? r : null; } catch (e) { return null; }
+  }
+  function saveRun(level, l = lives) { save('dbb-run', JSON.stringify({ level, score, lives: l })); }
+  function clearRun() { save('dbb-run', ''); }
+  function renderContinue() {
+    const r = getRun(), c = $('cont'), p = $('play');
+    c.hidden = !r;
+    if (r) c.textContent = `Continue: Level ${r.level}` + (r.level > FREE_LEVELS && !full ? ' 🔒' : '');
+    p.textContent = r ? 'New game' : 'Play!';
+    p.classList.toggle('alt', !!r);
+  }
+
+  let newBest = false;
+  function getBest() {
+    try { return JSON.parse(load('dbb-best')) || { score: 0, level: 0 }; } catch (e) { return { score: 0, level: 0 }; }
+  }
+  function recordBest() {
+    const b = getBest();
+    if (score > b.score) { save('dbb-best', JSON.stringify({ score, level: wave })); showBest(); return true; }
+    return false;
+  }
+  function showBest() {
+    const b = getBest();
+    $('best').textContent = b.score ? `Best: ${b.score} dinos, level ${b.level}` : '';
+  }
+  function renderOver() {
+    const lost = overKind === 'lost';
+    $('overBig').textContent = lost ? '🦖🎉' : '🏆🦕';
+    $('overTitle').textContent = lost ? 'Great job!' : 'You did it!';
+    $('overText').textContent = lost
+      ? `You bubbled ${score} dino${score === 1 ? '' : 's'} and got to level ${wave}!` + (newBest ? ' New best! 🏅' : '')
+      : full ? 'Unlocked! On to the next level.' : `You beat all ${FREE_LEVELS} free levels! Unlock the full game to keep going.`;
+    $('keep').hidden = !full;
+    $('keep').textContent = lost ? 'Keep going!' : 'Next level!';
+    $('more').hidden = full;
+    $('more').textContent = lost ? '🔒 Keep going' : '🔒 More levels';
+    if (overKind === 'win') {
+      $('overBig').textContent = '🏆👑';
+      $('overTitle').textContent = 'Champion!';
+      $('overText').textContent = `You beat all ${MAX_LEVEL} levels and bubbled ${score} dinos!` + (newBest ? ' New best! 🏅' : '');
+      $('keep').hidden = true; $('more').hidden = true;
+    }
+  }
+  function showOver(kind) {
+    overKind = kind;
+    newBest = recordBest();
+    running = false;
+    pauseBtn.style.display = 'none';
+    renderOver();
+    overEl.hidden = false;
+  }
 
   function gameOver() {
     running = false;
+    if (full) saveRun(wave, startLives()); else clearRun();
     pauseBtn.style.display = 'none';
     sfx.done();
-    $('overText').textContent = `You bubbled ${score} dino${score === 1 ? '' : 's'} and got to level ${wave}!`;
-    setTimeout(() => { overEl.hidden = false; }, 900);
+    setTimeout(() => showOver('lost'), 900);
   }
 
   function ouch(word) {
-    if (player.safe > 0) return;
+    if (player.safe > 0 || t < shieldUntil) return;
     lives--;
     player.safe = 2; player.bump = 1; shake = 0.4;
     sfx.oops();
@@ -372,6 +652,43 @@
   function say(x, y, text, size = 26, color = '#FFD84D') {
     floaters.push({ x, y, text, size, color, life: 1 });
   }
+  function catchDino(d) {
+    d.state = 'bubble'; d.vy = -1;
+    score += d.boss ? 10 : 1; hud();
+    if (d.boss) {
+      for (let i = 0; i < 5; i++) burst(d.x + (Math.random() - 0.5) * 90, d.y + (Math.random() - 0.5) * 90, 14);
+      say(d.x, d.y + 60, '+10 ⭐', 34, '#FFD84D');
+    }
+    sfx.pop(); burst(d.x, d.y, 10);
+    say(d.x, d.y - 20, WORDS[Math.floor(Math.random() * WORDS.length)]);
+    maybeDrop(d.x, d.y);
+  }
+  // Power-ups are rare: never on level 1, one at a time, and not while one is active
+  function maybeDrop(x, y) {
+    if (wave < 2 || powerups.length || t - lastDrop < 12) return;
+    if (t < Math.max(rapidUntil, tripleUntil, shieldUntil)) return;
+    if (Math.random() > 0.06) return;
+    const pool = POWERS.filter(p => (full || p.free) && (p.kind !== 'heart' || lives < maxLives()));
+    if (!pool.length) return;
+    let r = Math.random() * pool.reduce((s, p) => s + p.weight, 0);
+    const p = pool.find(p => (r -= p.weight) < 0) || pool[0];
+    powerups.push({ ...p, x, y, p: Math.random() * 6 });
+    lastDrop = t;
+  }
+  function grab(p) {
+    sfx.power(); burst(p.x, p.y, 12);
+    say(player.x, player.y - 70, p.word, 28, p.color);
+    if (p.kind === 'heart') { if (lives < maxLives()) { lives++; hud(); } return; }
+    rapidUntil = tripleUntil = shieldUntil = 0;
+    if (p.kind === 'rapid') rapidUntil = t + POWER_TIME;
+    if (p.kind === 'triple') tripleUntil = t + POWER_TIME;
+    if (p.kind === 'shield') shieldUntil = t + POWER_TIME;
+  }
+  function popShield() {
+    shieldUntil = 0; player.safe = 1;
+    sfx.pop(); burst(player.x, player.y, 12);
+    say(player.x, player.y - 60, 'Pop!', 26, '#5ED3F3');
+  }
 
   // ---------- update ----------
   function update(dt) {
@@ -397,13 +714,34 @@
     player.bump = Math.max(0, player.bump - dt * 3);
     player.safe = Math.max(0, player.safe - dt);
 
+    // ship trail: spawned under the ship and left behind as it moves
+    const tr = TRAILS[skin().trail];
+    if (tr) {
+      for (let i = 0; i < tr.n; i++) {
+        if (Math.random() > tr.chance) continue;
+        trail.push({
+          x: player.x + (Math.random() - 0.5) * 14, y: player.y + 20,
+          vx: (Math.random() - 0.5) * 0.8, vy: 1.4 + Math.random() * 1.4, life: 1,
+          c: tr.colors[Math.floor(Math.random() * tr.colors.length)],
+          r: tr.r[0] + Math.random() * (tr.r[1] - tr.r[0]), ring: tr.ring, grow: tr.grow,
+        });
+      }
+    }
+    for (const p of trail) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.life -= dt * 2.2; }
+    trail = trail.filter(p => p.life > 0);
+
     // auto fire
-    if (t - lastShot > 0.3) {
+    if (t - lastShot > (t < rapidUntil ? 0.17 : 0.3)) {
       lastShot = t;
-      bubbles.push({ x: player.x, y: player.y - 30, r: 9 + Math.random() * 4, wob: Math.random() * 6 });
+      const r = 9 + Math.random() * 4;
+      bubbles.push({ x: player.x, y: player.y - 30, r, wob: Math.random() * 6, vx: 0 });
+      if (t < tripleUntil) {
+        bubbles.push({ x: player.x, y: player.y - 30, r, wob: Math.random() * 6, vx: -1.8 });
+        bubbles.push({ x: player.x, y: player.y - 30, r, wob: Math.random() * 6, vx: 1.8 });
+      }
       sfx.shoot();
     }
-    for (const b of bubbles) { b.y -= 9 * dt * 60; b.wob += dt * 10; }
+    for (const b of bubbles) { b.y -= 9 * dt * 60; b.x += b.vx * dt * 60; b.wob += dt * 10; }
 
     // dive scheduling
     const inFormation = dinos.filter(d => d.state === 'form');
@@ -422,9 +760,24 @@
       eggs.push({ x: d.x, y: d.y + L.size * 0.4, vy: D.eggSpeed, rot: 0 });
       nextEgg = t + D.eggEvery * (0.7 + Math.random() * 0.6);
     }
+    const bossD = dinos.find(d => d.boss && d.state === 'boss');
+    if (bossD && t > nextBossEgg && bossD.y > 0) {
+      const n = wave >= 100 ? 3 : wave >= 40 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        eggs.push({ x: bossD.x, y: bossD.y + L.size, vy: D.eggSpeed * 0.9, vx: (i - (n - 1) / 2) * 1.4, rot: 0 });
+      }
+      nextBossEgg = t + Math.max(0.8, D.eggEvery * 0.9);
+    }
     for (const e of eggs) {
-      e.y += e.vy * dt * 60; e.rot += dt * 3;
-      if (!e.gone && Math.hypot(e.x - player.x, e.y - player.y) < 30) { e.gone = true; ouch('Splat!'); }
+      e.y += e.vy * dt * 60; e.x += (e.vx || 0) * dt * 60; e.rot += dt * 3;
+      const shielded = t < shieldUntil;
+      if (!e.gone && Math.hypot(e.x - player.x, e.y - player.y) < (shielded ? 48 : 30)) {
+        e.gone = true;
+        if (shielded) {
+          chicks.push({ x: e.x, y: e.y, p: Math.random() * 6 });
+          sfx.peep(); popShield();
+        } else ouch('Splat!');
+      }
       for (const b of bubbles) {
         if (!e.gone && !b.hit && Math.hypot(b.x - e.x, b.y - e.y) < L.size * 0.28 + b.r) {
           b.hit = true; e.gone = true;
@@ -435,6 +788,14 @@
       }
     }
     eggs = eggs.filter(e => !e.gone && e.y < H + 40);
+
+    // power-ups float down; touch one with the ship to grab it
+    for (const p of powerups) {
+      p.y += 1.7 * dt * 60;
+      p.x += Math.sin(t * 3 + p.p) * 0.8;
+      if (!p.got && Math.hypot(p.x - player.x, p.y - player.y) < 46) { p.got = true; grab(p); }
+    }
+    powerups = powerups.filter(p => !p.got && p.y < H + 40);
 
     // dinos
     for (const d of dinos) {
@@ -449,10 +810,20 @@
         d.y += d.vy * dt * 60;
         d.dx += (player.x - d.dx) * dt * D.track;
         d.x = d.dx + Math.sin(d.y / 45 + d.phase) * 70;
+        // the shield takes one bump, bubbling the dino, then pops
+        if (!d.bumped && running && t < shieldUntil && Math.hypot(d.x - player.x, d.y - player.y) < L.size * 0.5 + 44) {
+          catchDino(d); popShield();
+          continue;
+        }
         if (!d.bumped && running && Math.hypot(d.x - player.x, d.y - player.y) < L.size * 0.7) {
           d.bumped = true; ouch('Boing!');
         }
         if (d.y > H + 50) { d.y = -60; d.x = Math.random() * W; d.state = 'back'; d.bumped = false; }
+      } else if (d.state === 'boss') {
+        d.y += (L.top + L.size * 0.7 - d.y) * Math.min(1, dt * 1.5);
+        const tx = W / 2 + Math.sin(t * (0.6 + wave * 0.003)) * W * 0.32;
+        d.x += (tx - d.x) * Math.min(1, dt * 3);
+        d.flash = Math.max(0, d.flash - dt);
       } else if (d.state === 'bubble') {
         d.vy -= dt * 3; d.y += d.vy * dt * 60; d.spin += dt * 2;
         d.x += Math.sin(t * 4 + d.phase) * 1.2;
@@ -460,41 +831,43 @@
 
       if (d.state !== 'bubble') {
         for (const b of bubbles) {
-          if (!b.hit && Math.hypot(b.x - d.x, b.y - d.y) < L.size * 0.5 + b.r) {
+          if (!b.hit && Math.hypot(b.x - d.x, b.y - d.y) < (d.boss ? L.size * 1.1 : L.size * 0.5) + b.r) {
             b.hit = true;
             if (d.hp > 1) {
               d.hp--;
-              sfx.tink(); burst(d.x, d.y - L.size * 0.4, 5);
-              say(d.x, d.y - 30, 'Tink!', 22, '#5ED3F3');
+              sfx.tink();
+              if (d.boss) { d.flash = 0.12; burst(b.x, b.y, 3); }
+              else { burst(d.x, d.y - L.size * 0.4, 5); say(d.x, d.y - 30, 'Tink!', 22, '#5ED3F3'); }
               break;
             }
-            d.state = 'bubble'; d.vy = -1;
-            score++; hud();
-            sfx.pop(); burst(d.x, d.y, 10);
-            say(d.x, d.y - 20, WORDS[Math.floor(Math.random() * WORDS.length)]);
+            catchDino(d);
             break;
           }
         }
       }
     }
-    bubbles = bubbles.filter(b => b.y > -30 && !b.hit);
-    dinos = dinos.filter(d => !(d.state === 'bubble' && d.y < -90));
+    bubbles = bubbles.filter(b => b.y > -30 && b.x > -30 && b.x < W + 30 && !b.hit);
+    dinos = dinos.filter(d => !(d.state === 'bubble' && d.y < (d.boss ? -200 : -90)));
 
     // level cleared
-    if (running && dinos.length === 0 && !nextWaveAt) {
+    if (running && dinos.length === 0 && !nextWaveAt && !freeEndAt && !winAt) {
       bannerText = 'Hooray!';
       bannerUntil = t + 2.2;
-      eggs = [];
+      eggs = []; powerups = [];
       sfx.yay();
       for (let i = 0; i < 6; i++) burst(Math.random() * W, Math.random() * H * 0.6, 16);
-      if (lives < MAX_LIVES) {
+      if (lives < maxLives()) {
         lives++; hud();
         setTimeout(sfx.heart, 500);
         say(player.x, player.y - 60, '+❤️', 34, '#FF7AC6');
       }
-      nextWaveAt = t + 2.4;
+      if (wave >= MAX_LEVEL) winAt = t + 2.4;
+      else if (!full && wave >= FREE_LEVELS) freeEndAt = t + 2.4;
+      else nextWaveAt = t + 2.4;
     }
     if (nextWaveAt && t >= nextWaveAt) { nextWaveAt = 0; newWave(); }
+    if (freeEndAt && t >= freeEndAt) { freeEndAt = 0; saveRun(wave + 1); showOver('freeEnd'); }
+    if (winAt && t >= winAt) { winAt = 0; clearRun(); sfx.yay(); showOver('win'); }
   }
 
   // ---------- draw ----------
@@ -530,11 +903,30 @@
     for (const b of bubbles) bubbleShape(b.x + Math.sin(b.wob) * 2, b.y, b.r);
     for (const e of eggs) emoji('🥚', e.x, e.y, L.size * 0.5, Math.sin(e.rot) * 0.4);
     for (const c of chicks) emoji('🐥', c.x, c.y, L.size * 0.55, Math.sin(t * 10 + c.p) * 0.3);
+    for (const p of powerups) {
+      const pulse = 1 + Math.sin(t * 6 + p.p) * 0.08;
+      ctx.save();
+      ctx.shadowColor = p.color; ctx.shadowBlur = 18;
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.strokeStyle = p.color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 24 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      emoji(p.icon, p.x, p.y, 28 * pulse);
+    }
 
     for (const d of dinos) {
+      const sz = d.boss ? L.size * 2.4 : L.size;
       if (d.state === 'bubble') {
-        bubbleShape(d.x, d.y, L.size * 0.72);
-        emoji(d.emoji, d.x, d.y, L.size * 0.75, Math.sin(d.spin) * 0.5 + Math.PI);
+        bubbleShape(d.x, d.y, sz * 0.72);
+        emoji(d.emoji, d.x, d.y, sz * 0.75, Math.sin(d.spin) * 0.5 + Math.PI);
+      } else if (d.boss) {
+        ctx.save(); if (d.flash > 0) ctx.globalAlpha = 0.45;
+        emoji(d.emoji, d.x, d.y, sz, Math.sin(t * 2) * 0.08);
+        ctx.restore();
+        const bw = Math.min(260, W * 0.6), bx = W / 2 - bw / 2, by = 68;
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(bx, by, bw, 10);
+        ctx.fillStyle = '#FF7AC6'; ctx.fillRect(bx, by, bw * (d.hp / d.maxHp), 10);
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, 10);
       } else {
         const wiggle = d.state === 'dive' ? Math.sin(t * 12) * 0.25 : Math.sin(t * 4 + d.phase) * 0.12;
         emoji(d.emoji, d.x, d.y, L.size, wiggle);
@@ -542,17 +934,58 @@
       }
     }
 
-    // rocket (blinks while safe after a bump)
+    // ship (blinks while safe after a bump)
+    const sk = skin();
     const visible = !(player.safe > 0 && Math.floor(t * 10) % 2 === 0) && (running || lives > 0);
+    for (const p of trail) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      const r = p.grow ? p.r * (2.2 - p.life) : p.r;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      if (p.ring) { ctx.strokeStyle = p.c; ctx.lineWidth = 1.5; ctx.stroke(); }
+      else { ctx.fillStyle = p.c; ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
     if (visible) {
       const squish = 1 + player.bump * 0.3;
       ctx.save(); ctx.translate(player.x, player.y); ctx.scale(squish, 1 / squish);
-      emoji('🚀', 0, 0, 54, -Math.PI / 4);
-      ctx.restore();
-      if (running) {
-        ctx.fillStyle = COLORS[Math.floor(t * 12) % 3];
-        ctx.beginPath(); ctx.arc(player.x + Math.sin(t * 30) * 3, player.y + 34, 5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+      if (running && sk.trail === 'flame') {
+        // flickering flame attached to the rocket's tail
+        const fl = 12 + Math.random() * 9;
+        const g = ctx.createLinearGradient(0, 20, 0, 20 + fl);
+        g.addColorStop(0, '#FFF6B0'); g.addColorStop(0.45, '#FFB347'); g.addColorStop(1, 'rgba(255,122,198,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.moveTo(-7, 20); ctx.quadraticCurveTo(0, 20 + fl * 2, 7, 20); ctx.closePath(); ctx.fill();
       }
+      if (running && sk.trail === 'beam') {
+        // tractor beam glowing out of the bottom of the UFO
+        ctx.fillStyle = `rgba(94,211,243,${0.18 + Math.random() * 0.1})`;
+        ctx.beginPath(); ctx.moveTo(-9, 10); ctx.lineTo(9, 10); ctx.lineTo(22, 48); ctx.lineTo(-22, 48); ctx.closePath(); ctx.fill();
+      }
+      emoji(sk.icon, 0, 0, 54, sk.rot + (sk.rot ? 0 : Math.sin(t * 5) * 0.08));
+      ctx.restore();
+    }
+
+    // shield bubble and power-up timers
+    if (running) {
+      const sLeft = shieldUntil - t;
+      if (sLeft > 0 && !(sLeft < 2 && Math.floor(t * 8) % 2 === 0)) {
+        ctx.save(); ctx.globalAlpha = 0.85;
+        bubbleShape(player.x, player.y, 46 + Math.sin(t * 6) * 3);
+        ctx.restore();
+      }
+      const active = [['⚡', rapidUntil, '#FFD84D'], ['🌟', tripleUntil, '#B8F35A'], ['🛡️', shieldUntil, '#5ED3F3']]
+        .filter(a => a[1] > t);
+      active.forEach((a, i) => {
+        const x = 32 + i * 40, y = H - 28;
+        const frac = Math.min(1, (a[1] - t) / POWER_TIME);
+        ctx.fillStyle = 'rgba(22,12,54,0.6)';
+        ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = a[2];
+        ctx.beginPath(); ctx.arc(x, y, 14, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();
+        emoji(a[0], x, y, 15);
+      });
     }
 
     for (const c of confetti) {
@@ -587,7 +1020,7 @@
   }
 
   window.addEventListener('resize', resize);
-  resize(); makeStars();
+  resize(); makeStars(); renderSkins(); refreshShop(); showBest(); renderContinue();
   requestAnimationFrame(loop);
 })();
 </script>
